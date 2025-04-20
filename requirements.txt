@@ -1,2 +1,2 @@
 python-telegram-bot==20.0
-mega.py==1.0.1
+mega.py
