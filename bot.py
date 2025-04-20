@@ -18,18 +18,20 @@ def is_mega_link(text):
 def download_mega_content(url: str):
     mega = Mega()
     m = mega.login()  # تسجيل الدخول
-    content = m.get_url(url)  # الحصول على محتويات الرابط (مجلد أو ملف)
+    file_or_folder = m.get_url(url)  # الحصول على المحتوى من الرابط
     
-    if content['type'] == 'folder':
-        files = content['files']
+    # إذا كان الرابط يحتوي على مجلد
+    if file_or_folder['type'] == 'folder':
+        files = file_or_folder['files']
         downloaded_files = []
         for file in files:
             file_path = file['name']
             downloaded_files.append(m.download(file, dest_path='./downloads'))
         return downloaded_files
-    elif content['type'] == 'file':
-        file_path = content['name']
-        m.download(content, dest_path='./downloads')
+    # إذا كان الرابط يحتوي على ملف فقط
+    elif file_or_folder['type'] == 'file':
+        file_path = file_or_folder['name']
+        m.download(file_or_folder, dest_path='./downloads')
         return [file_path]
     return []
 
