@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import Application, MessageHandler, filters, CommandHandler, CallbackContext
+from telegram.ext import Application, MessageHandler, CommandHandler, CallbackContext, filters
 from mega import Mega
 import os
 import re
@@ -18,22 +18,21 @@ def is_mega_link(text):
 def download_mega_content(url: str):
     mega = Mega()
     m = mega.login()  # تسجيل الدخول
-    file_or_folder = m.get_url(url)  # الحصول على المحتوى من الرابط
+    file_or_folder = m.get(url)  # الحصول على الرابط باستخدام الدالة الصحيحة
     
-    # إذا كان الرابط يحتوي على مجلد
-    if file_or_folder['type'] == 'folder':
-        files = file_or_folder['files']
-        downloaded_files = []
-        for file in files:
-            file_path = file['name']
-            downloaded_files.append(m.download(file, dest_path='./downloads'))
-        return downloaded_files
-    # إذا كان الرابط يحتوي على ملف فقط
-    elif file_or_folder['type'] == 'file':
-        file_path = file_or_folder['name']
-        m.download(file_or_folder, dest_path='./downloads')
-        return [file_path]
-    return []
+    downloaded_files = []
+    
+    if file_or_folder is not None:
+        if file_or_folder['type'] == 'folder':
+            # تحميل جميع الملفات في المجلد
+            files = file_or_folder['files']
+            for file in files:
+                downloaded_files.append(m.download(file, dest_path='./downloads'))
+        elif file_or_folder['type'] == 'file':
+            # تحميل الملف الواحد
+            downloaded_files.append(m.download(file_or_folder, dest_path='./downloads'))
+    
+    return downloaded_files
 
 # دالة لمعالجة الرسائل في المجموعة
 async def handle_message(update: Update, context: CallbackContext):
