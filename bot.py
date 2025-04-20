@@ -18,18 +18,17 @@ def is_mega_link(text):
 def download_mega_content(url: str):
     mega = Mega()
     m = mega.login()  # تسجيل الدخول
-    file_or_folder = m.get(url)  # الحصول على الرابط باستخدام الدالة الصحيحة
+    
+    # التحقق إذا كان الرابط ملف أو مجلد
+    file_or_folder = m.get_file(url) if '.mega.nz' in url else m.get_folder(url)
     
     downloaded_files = []
     
-    if file_or_folder is not None:
-        if file_or_folder['type'] == 'folder':
-            # تحميل جميع الملفات في المجلد
-            files = file_or_folder['files']
-            for file in files:
+    if file_or_folder:
+        if isinstance(file_or_folder, list):  # إذا كان الرابط يشير إلى مجلد
+            for file in file_or_folder:
                 downloaded_files.append(m.download(file, dest_path='./downloads'))
-        elif file_or_folder['type'] == 'file':
-            # تحميل الملف الواحد
+        elif isinstance(file_or_folder, dict):  # إذا كان الرابط يشير إلى ملف واحد
             downloaded_files.append(m.download(file_or_folder, dest_path='./downloads'))
     
     return downloaded_files
