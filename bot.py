@@ -1,11 +1,10 @@
 from telegram import Update
-from telegram.ext import Updater, MessageHandler, Filters, CallbackContext
+from telegram.ext import Application, MessageHandler, filters, CommandHandler, CallbackContext
 from mega import Mega
 import os
 import re
 
 # إعدادات البوت من المتغيرات البيئية
-import os
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('CHAT_ID')  # أو اسم المجموعة
 DEV_USER_ID = int(os.getenv('DEV_USER_ID'))  # ID المطور
@@ -35,7 +34,7 @@ def download_mega_content(url: str):
     return []
 
 # دالة لمعالجة الرسائل في المجموعة
-def handle_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: CallbackContext):
     if update.message.from_user.id != DEV_USER_ID:
         return  # لا استجابة إذا لم يكن المرسل هو المطور
 
@@ -46,27 +45,32 @@ def handle_message(update: Update, context: CallbackContext):
             downloaded_files = download_mega_content(url)
             for file_path in downloaded_files:
                 with open(file_path, 'rb') as file:
-                    context.bot.send_document(chat_id=CHAT_ID, document=file)
-            update.message.reply_text(f"تم إرسال الملفات بنجاح!")
+                    await context.bot.send_document(chat_id=CHAT_ID, document=file)
+            await update.message.reply_text(f"تم إرسال الملفات بنجاح!")
 
             # تنظيف الملفات المحملة بعد إرسالها
             for file_path in downloaded_files:
                 os.remove(file_path)
         except Exception as e:
-            update.message.reply_text(f"حدث خطأ: {str(e)}")
+            await update.message.reply_text(f"حدث خطأ: {str(e)}")
     else:
-        update.message.reply_text("يرجى إرسال رابط ميغا صحيح.")
+        await update.message.reply_text("يرجى إرسال رابط ميغا صحيح.")
+
+# دالة لمعالجة الأمر /start
+async def start(update: Update, context: CallbackContext):
+    await update.message.reply_text("البوت يعمل بنجاح!")
 
 def main():
-    updater = Updater(TELEGRAM_TOKEN)
-    dp = updater.dispatcher
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
 
     # إضافة معالج الرسائل في المجموعة
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # إضافة معالج للأمر /start
+    application.add_handler(CommandHandler("start", start))
 
     # بدء البوت
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
