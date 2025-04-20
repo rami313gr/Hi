@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import Application, MessageHandler, CommandHandler, CallbackContext, filters
+from telegram.ext import Application, MessageHandler, filters, CommandHandler, CallbackContext
 from mega import Mega
 import os
 import re
@@ -16,22 +16,24 @@ def is_mega_link(text):
 
 # دالة لتحميل محتويات المجلد
 def download_mega_content(url: str):
-    mega = Mega()
-    m = mega.login()  # تسجيل الدخول
+    try:
+        mega = Mega()
+        m = mega.login()  # تسجيل الدخول
+        # محاولة الحصول على المحتويات
+        content = m.get_folder(url)  # هذا لتحديد المجلد
+        downloaded_files = []
+        
+        # التحقق من نوع المحتوى (مجلد أو ملف)
+        for file in content:
+            file_path = file['name']
+            # تحميل الملف
+            m.download(file, dest_path='./downloads')
+            downloaded_files.append(file_path)
+        
+        return downloaded_files
     
-    # التحقق إذا كان الرابط ملف أو مجلد
-    file_or_folder = m.get_file(url) if '.mega.nz' in url else m.get_folder(url)
-    
-    downloaded_files = []
-    
-    if file_or_folder:
-        if isinstance(file_or_folder, list):  # إذا كان الرابط يشير إلى مجلد
-            for file in file_or_folder:
-                downloaded_files.append(m.download(file, dest_path='./downloads'))
-        elif isinstance(file_or_folder, dict):  # إذا كان الرابط يشير إلى ملف واحد
-            downloaded_files.append(m.download(file_or_folder, dest_path='./downloads'))
-    
-    return downloaded_files
+    except Exception as e:
+        return str(e)  # في حالة وجود خطأ نعيد الخطأ كرسالة
 
 # دالة لمعالجة الرسائل في المجموعة
 async def handle_message(update: Update, context: CallbackContext):
@@ -43,16 +45,16 @@ async def handle_message(update: Update, context: CallbackContext):
 
         try:
             downloaded_files = download_mega_content(url)
-            for file_path in downloaded_files:
-                with open(file_path, 'rb') as file:
-                    await context.bot.send_document(chat_id=CHAT_ID, document=file)
-            await update.message.reply_text(f"تم إرسال الملفات بنجاح!")
-
-            # تنظيف الملفات المحملة بعد إرسالها
-            for file_path in downloaded_files:
-                os.remove(file_path)
+            if isinstance(downloaded_files, list):
+                for file_path in downloaded_files:
+                    with open(file_path, 'rb') as file:
+                        await context.bot.send_document(chat_id=CHAT_ID, document=file)
+                await update.message.reply_text(f"تم إرسال الملفات بنجاح!")
+            else:
+                # إذا كان هناك خطأ
+                await update.message.reply_text(f"حدث خطأ: {downloaded_files}")
         except Exception as e:
-            await update.message.reply_text(f"حدث خطأ: {str(e)}")
+            await update.message.reply_text(f"حدث خطأ أثناء المعالجة: {str(e)}")
     else:
         await update.message.reply_text("يرجى إرسال رابط ميغا صحيح.")
 
