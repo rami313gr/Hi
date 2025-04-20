@@ -9,31 +9,40 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('CHAT_ID')  # أو اسم المجموعة
 DEV_USER_ID = int(os.getenv('DEV_USER_ID'))  # ID المطور
 
+# بيانات حساب MEGA
+MEGA_EMAIL = "drrfqg@hi2.in"  # ضع هنا بريدك الإلكتروني
+MEGA_PASSWORD = "drrfqg@hi2.in"  # ضع هنا كلمة مرورك
+
 # دالة للتحقق إذا كانت الرسالة تحتوي على رابط ميغا
 def is_mega_link(text):
     mega_link_pattern = r'(https?://(?:www\.)?mega\.nz/\S+)'
     return re.search(mega_link_pattern, text) is not None
 
-# دالة لتحميل محتويات المجلد
+# دالة لتحميل محتويات المجلد أو الملف
 def download_mega_content(url: str):
+    mega = Mega()
+
+    # تسجيل الدخول باستخدام حساب MEGA
+    m = mega.login(MEGA_EMAIL, MEGA_PASSWORD)
+
     try:
-        mega = Mega()
-        m = mega.login()  # تسجيل الدخول
-        # محاولة الحصول على المحتويات
-        content = m.get_folder(url)  # هذا لتحديد المجلد
-        downloaded_files = []
-        
-        # التحقق من نوع المحتوى (مجلد أو ملف)
-        for file in content:
-            file_path = file['name']
-            # تحميل الملف
-            m.download(file, dest_path='./downloads')
-            downloaded_files.append(file_path)
-        
-        return downloaded_files
-    
+        content = m.get_url(url)  # الحصول على محتويات الرابط (مجلد أو ملف)
+
+        if content['type'] == 'folder':
+            files = m.get_files(content['id'])
+            downloaded_files = []
+            for file in files:
+                file_path = file['name']
+                downloaded_files.append(m.download(file, dest_path='./downloads'))
+            return downloaded_files
+        elif content['type'] == 'file':
+            file_path = content['name']
+            m.download(content, dest_path='./downloads')
+            return [file_path]
+        else:
+            raise Exception("نوع الرابط غير مدعوم")
     except Exception as e:
-        return str(e)  # في حالة وجود خطأ نعيد الخطأ كرسالة
+        raise Exception(f"خطأ في تنزيل المحتوى من الرابط: {str(e)}")
 
 # دالة لمعالجة الرسائل في المجموعة
 async def handle_message(update: Update, context: CallbackContext):
@@ -45,16 +54,16 @@ async def handle_message(update: Update, context: CallbackContext):
 
         try:
             downloaded_files = download_mega_content(url)
-            if isinstance(downloaded_files, list):
-                for file_path in downloaded_files:
-                    with open(file_path, 'rb') as file:
-                        await context.bot.send_document(chat_id=CHAT_ID, document=file)
-                await update.message.reply_text(f"تم إرسال الملفات بنجاح!")
-            else:
-                # إذا كان هناك خطأ
-                await update.message.reply_text(f"حدث خطأ: {downloaded_files}")
+            for file_path in downloaded_files:
+                with open(file_path, 'rb') as file:
+                    await context.bot.send_document(chat_id=CHAT_ID, document=file)
+            await update.message.reply_text(f"تم إرسال الملفات بنجاح!")
+
+            # تنظيف الملفات المحملة بعد إرسالها
+            for file_path in downloaded_files:
+                os.remove(file_path)
         except Exception as e:
-            await update.message.reply_text(f"حدث خطأ أثناء المعالجة: {str(e)}")
+            await update.message.reply_text(f"حدث خطأ: {str(e)}")
     else:
         await update.message.reply_text("يرجى إرسال رابط ميغا صحيح.")
 
